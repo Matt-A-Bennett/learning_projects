@@ -75,7 +75,6 @@ class Mat:
                     transposed[col_idx].append(col)
         return Mat(transposed)
 
-        # NEEDS ADDING TO BLOG
     def is_square(self):
         sizes = size(self)
         return sizes[0] == sizes[1]
@@ -105,65 +104,34 @@ class Mat:
         else:
             return True
 
-    # NEEDS ADDING TO BLOG
-    def function_elwise(self, function):
-        B = gen_mat(size(self))
-        for i in range(size(self)[0]):
-            for j in range(size(self)[1]):
-                B.data[i][j] = function(self.data[i][j])
-        return B
-
-    # NEEDS ADDING TO BLOG
-    def function_elwise2(self, B, function):
+    def function_elwise(self, function, B=None):
         C = gen_mat(size(self))
         for i in range(size(self)[0]):
             for j in range(size(self)[1]):
-                C.data[i][j] = function(self.data[i][j], B.data[i][j])
+                if B:
+                    C.data[i][j] = function(self.data[i][j], B.data[i][j])
+                else:
+                    C.data[i][j] = function(self.data[i][j])
         return C
 
-        # NEEDS ADDING TO BLOG
     def scale(self, scalar):
         return self.function_elwise(lambda x: x*scalar)
 
-        # NEEDS ADDING TO BLOG
     def multiply_elwise(self, B):
-        return self.function_elwise2(B, lambda x, y: x*y)
+        return self.function_elwise(lambda x, y: x*y, B)
 
-        # NEEDS ADDING TO BLOG
     def div_elwise(self, B):
-        return self.function_elwise2(B, lambda x, y: x/y)
+        return self.function_elwise(lambda x, y: x/y, B)
 
-        # NEEDS ADDING TO BLOG
     def add(self, B):
         if isinstance(B, Mat) == False:
             return self.function_elwise(lambda x: x+B)
-        return self.function_elwise2(B, lambda x, y: x+y)
+        return self.function_elwise(lambda x, y: x+y, B)
 
-        # NEEDS ADDING TO BLOG
     def subtract(self, B):
         if isinstance(B, Mat) == False:
             return self.function_elwise(lambda x: x-B)
-        return self.function_elwise2(B, lambda x, y: x-y)
-
-    # def scale(self, scalar):
-    #     A = dc(self)
-    #     for row_idx, row in enumerate(A.data):
-    #         for col_idx in range(len(row)):
-    #             A.data[row_idx][col_idx] *= scalar
-    #     return A
-
-    # def add(self, new_mat):
-    #     added_rows = []
-    #     for rows in zip(self.data, new_mat.data):
-    #         added_cols = []
-    #         for cols in zip(rows[0],rows[1]):
-    #             added_cols.append(sum(list(cols)))
-    #         added_rows.append(added_cols)
-    #     return Mat(added_rows)
-
-    # def subtract(self, new_mat):
-    #     # reverse sign of second matrix and use add function
-    #     return self.add(new_mat.scale(-1))
+        return self.function_elwise(lambda x, y: x-y, B)
 
     def dot(self, new_mat):
         # make both vectors rows with transpose
