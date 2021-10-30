@@ -1,7 +1,4 @@
-# Known bugs:
-
-# To do:
-# Retest everything now that I took away nearly all the deepcopys
+# Know bugs:
 
 from copy import deepcopy as dc
 from math import sqrt
@@ -97,9 +94,9 @@ class Mat:
             return False
 
     def is_symmetric(self):
-        for idx1 in range(size(self)[0]):
-            for idx2 in range(idx1+1, size(self)[0]):
-                if self.data[idx1][idx2] != self.data[idx2][idx1]:
+        for i in range(size(self)[0]):
+            for j in range(i+1, size(self)[0]):
+                if self.data[i][j] != self.data[j][i]:
                     return False
         else:
             return True
@@ -114,24 +111,22 @@ class Mat:
                     C.data[i][j] = function(self.data[i][j])
         return C
 
-    def scale(self, scalar):
-        return self.function_elwise(lambda x: x*scalar)
-
-    def multiply_elwise(self, B):
-        return self.function_elwise(lambda x, y: x*y, B)
-
-    def div_elwise(self, B):
-        return self.function_elwise(lambda x, y: x/y, B)
+    def function_choice(self, B, functions):
+        if isinstance(B, Mat) == False:
+            return self.function_elwise(functions[0])
+        return self.function_elwise(functions[1], B)
 
     def add(self, B):
-        if isinstance(B, Mat) == False:
-            return self.function_elwise(lambda x: x+B)
-        return self.function_elwise(lambda x, y: x+y, B)
+        return self.function_choice(B, [lambda x: x+B, lambda x, y: x+y])
 
     def subtract(self, B):
-        if isinstance(B, Mat) == False:
-            return self.function_elwise(lambda x: x-B)
-        return self.function_elwise(lambda x, y: x-y, B)
+        return self.function_choice(B, [lambda x: x-B, lambda x, y: x-y])
+
+    def multiply_elwise(self, B):
+        return self.function_choice(B, [lambda x: x*B, lambda x, y: x*y])
+
+    def div_elwise(self, B):
+        return self.function_choice(B, [lambda x: x/B, lambda x, y: x/y])
 
     def dot(self, new_mat):
         # make both vectors rows with transpose
@@ -151,7 +146,7 @@ class Mat:
 
     def norm(self):
         if self.length() != 0:
-            self = self.scale(1/self.length())
+            self = self.multiply_elwise(1/self.length())
         return self
 
     def multiply(self, new_mat):
@@ -172,7 +167,6 @@ class Mat:
             diag_vals.append(self.data[i][i])
         return diag_vals
 
-    # NEEDS ADDING TO BLOG
     def elimination(self):
         # should do some row exchanges for numerical stability...
 
@@ -266,7 +260,6 @@ class Mat:
         coeffs = list(reversed(coeff))
         return Mat([coeffs]).transpose()
 
-    # NEEDS ADDING TO BLOG
     def pivots(self):
         _, _, _, U, _, _ = self.elimination()
         # extract the first non-zero from each row - track the column number
@@ -280,7 +273,6 @@ class Mat:
                 pivots[j] = col[piv_pos-1]
         return pivots
 
-    # NEEDS ADDING TO BLOG
     def rank(self):
         return len(A.pivots())
 
@@ -451,7 +443,7 @@ class Mat:
             A = E.multiply(self).multiply(Einv)
 
             # shift A by -cI, where c is last diag
-            shift = eye(size(A)).scale(old_eig)
+            shift = eye(size(A)).multiply_elwise(old_eig)
 
             # QR factorisation
             A = A.subtract(shift)
@@ -486,7 +478,7 @@ class Mat:
             # ensure we don't destroy the diagonal completely
             if evalue in self.diag():
                 evalue -= 1e-12
-            A_shifted = self.subtract(eye(size(self)).scale(evalue))
+            A_shifted = self.subtract(eye(size(self)).multiply_elwise(evalue))
             # A_shifted_inv = A_shifted.inverse()
             b = gen_mat([size(self)[0],1], values=[1])
             b = b.norm()
@@ -496,7 +488,7 @@ class Mat:
                 # b = A_shifted_inv.multiply(b)
                 b = b.norm()
                 diff1 = b.subtract(old_b)
-                diff2 = b.subtract(old_b.scale(-1))
+                diff2 = b.subtract(old_b.multiply_elwise(-1))
                 if diff2.length() or diff2.length() < epsilon:
                     evects.append(b.transpose().data[0])
                     break
@@ -514,7 +506,7 @@ class Mat:
 
     # NEEDS ADDING TO BLOG
     def pivot_sign_code(self):
-        ''' Returns number between 1 and 8 according to signs of pivots. We do
+        ''' Returns number between 0 and 7 according to signs of pivots. We do
         this by constructing a 3-bit binary number, where each bit represents
         the presence/absence of negative, zero, or positive pivots, and then
         converting from binary to a base 10 integer. '''
@@ -590,4 +582,3 @@ class Mat:
     # NEEDS IMPLEMENTING (maybe too unstable to even trying to compute....)
     def jordan_form(self):
         pass
-
