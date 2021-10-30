@@ -509,7 +509,7 @@ class Mat:
         ''' Returns number between 0 and 7 according to signs of pivots. We do
         this by constructing a 3-bit binary number, where each bit represents
         the presence/absence of negative, zero, or positive pivots, and then
-        converting from binary to a base 10 integer. '''
+        converting from binary to a base 10 integer.'''
         pivot_info = self.pivots().items()
 
         neg = any(piv[1] < 0 for piv in pivot_info)
