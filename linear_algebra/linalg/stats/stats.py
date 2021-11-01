@@ -1,3 +1,7 @@
+# To do:
+# generic statistic p values table lookup method (maybe store the tables as
+# csv files or dict vars or something)
+
 import linalg.linalg as la
 from math import sqrt
 
@@ -16,16 +20,17 @@ def mean(A, axis=0):
     if min(la.size(A)) == 1:
         axis = la.size(A).index(max(la.size(A)))
     A_sum = sum(A, axis)
-    A_mean = A_sum.scale(1/la.size(A)[axis])
+    A_mean = A_sum.div_elwise(la.size(A)[axis])
+    if axis == 1:
+        A_mean = A_mean.transpose()
     return A_mean
 
-# # NEEDS ADDING TO BLOG
 def gen_centering(size):
     if type(size) is int:
         size = [size, size]
     return la.eye(size).subtract(1/size[0])
 
-# NEEDS ADDING TO BLOG (shift each col/row by an amount x, such that the mean=0)
+# NEEDS ADDING TO BLOG
 def zero_center(A, axis=0):
     if axis == 2:
         global_mean = mean(mean(A)).data[0][0]
@@ -35,60 +40,106 @@ def zero_center(A, axis=0):
     if A.is_square():
         A = gen_centering(la.size(A)).multiply(A)
     else:
-        A_mean = mean(A)
-        ones = la.gen_mat([la.size(A)[0], 1], values=[1])
-        A_mean_mat = ones.multiply(A_mean)
+        A_mean_mat = la.tile(mean(A), axes=[la.size(A)[0],1])
         A = A.subtract(A_mean_mat)
     if axis == 1:
         A = A.transpose()
     return A
 
-def covar(A):
-    A = zero_center(A)
-    A = A.transpose().multiply(A)
-    return A
-
-def var(A, pop_or_samp='samp'):
-    n_obs = la.size(A)[0]
-    A_covar = covar(A)
-    A_var = la.Mat([A_covar.diag()])
-    if pop_or_samp == 'samp':
-        # use inbiased estimator (N-1)
-        A_var = A_var.scale(1/(n_obs-1))
-    return A_var
-
-def stddev(A, axis=0, pop_or_samp='samp'):
+def covar(A, axis=0, sample=True):
     if axis == 1:
         A = A.transpose()
-    if pop_or_samp == 'pop':
-        A_var = covar(A)
-        A_var = la.Mat([])
-    elif pop_or_samp == 'samp':
-        A_var = var(A, pop_or_samp=pop_or_samp)
-    stddevs = la.function_elwise(A_var, sqrt)
-    return stddevs
+    A_zc = zero_center(A)
+    A_cov = A_zc.transpose().multiply(A_zc)
+    N = la.size(A)[0]
+    if sample:
+        N -= 1
+    A_cov = A_cov.div_elwise(N)
+    return A_cov
 
-def stderr(A, axis=0, pop_or_samp='samp'):
-    stddevs = stddev(A, axis, pop_or_samp=pop_or_samp)
-    stderrs = stddevs.scale(1/sqrt(la.size(A)[axis]))
-    return stderrs
+def var(A, axis=0, sample=True):
+    A_covar = covar(A, axis, sample)
+    A_var = la.Mat([A_covar.diag()])
+    if axis == 1:
+        return A_var.transpose()
+    return A_var
 
-# NEEDS IMPLEMENTING
-def zscore(A, axis=0):
-    pass
+def sd(A, axis=0, sample=True):
+    A_var = var(A, axis, sample)
+    sds = A_var.function_elwise(sqrt)
+    return sds
 
-def corr(u, v=None):
-    if v:
-        if la.size(u)[1] != 1:
-            u = u.transpose()
-        if la.size(v)[1] != 1:
-            v = v.transpose()
-        u = la.cat(u,v)
+def se(A, axis=0, sample=True):
+    sds = sd(A, axis, sample)
+    N = la.size(A)[axis]
+    ses = sds.div_elwise(sqrt(N))
+    return ses
 
-    covariance = covar(u)
-    stddevs = stddev(u, pop_or_samp='pop')
-    stddev_prods = stddevs.transpose().multiply(stddevs)
-    corr = div_elwise(covariance, stddev_prods)
-    if v:
-        corr = corr.data[0][1]
-    return corr
+# NEEDS ADDING TO BLOG
+def zscore(A, axis=0, sample=False):
+    A_zc = zero_center(A, axis)
+    A_sd = sd(A_zc, axis, sample)
+    if axis == 1:
+        A_sd_rep = la.tile(A_sd, axes=[1, la.size(A)[1]])
+    else:
+        A_sd_rep = la.tile(A_sd, axes=[la.size(A)[0], 1])
+    return A_zc.div_elwise(A_sd_rep)
+
+# NEEDS ADDING TO BLOG
+def corr(A, axis=0):
+    K = covar(A, axis)
+    sds=[1/sqrt(x) for x in K.diag()]
+    K_sqrt = la.gen_mat([len(sds)]*2, values=sds, type='diag')
+    correlations = K_sqrt.multiply(K).multiply(K_sqrt)
+    return correlations
+
+# NEEDS ADDING TO BLOG
+def ttest(A, axis=0, H=0):
+    A_diff = mean(A, axis).subtract(H)
+    A_se = se(A, axis, sample=True)
+    ts = A_diff.div_elwise(A_se)
+    df = la.size(A)[axis]
+    return ts, df
+
+    # for i, t in enumerate(t_lookup[df]):
+    #     if t > res.data[0][2]:
+    #           break
+    # print(f"p < {t_lookup['ps'][i-1]}")
+
+    # t_lookup = {'ps' : [0.5,    0.25,  0.20,  0.15,  0.10,  0.05, 0.025,  0.01, 0.005, 0.001, 0.0005],
+    #                1 : [0.000, 1.000, 1.376, 1.963, 3.078, 6.314, 12.71, 31.82, 63.66, 318.31, 636.62],
+    #                2 : [0.000, 0.816, 1.061, 1.386, 1.886, 2.920, 4.303, 6.965, 9.925, 22.327, 31.599],
+    #                3 : [0.000, 0.765, 0.978, 1.250, 1.638, 2.353, 3.182, 4.541, 5.841, 10.215, 12.924],
+    #                4 : [0.000, 0.741, 0.941, 1.190, 1.533, 2.132, 2.776, 3.747, 4.604, 7.173, 8.610],
+    #                5 : [0.000, 0.727, 0.920, 1.156, 1.476, 2.015, 2.571, 3.365, 4.032, 5.893, 6.869],
+    #                6 : [0.000, 0.718, 0.906, 1.134, 1.440, 1.943, 2.447, 3.143, 3.707, 5.208, 5.959],
+    #                7 : [0.000, 0.711, 0.896, 1.119, 1.415, 1.895, 2.365, 2.998, 3.499, 4.785, 5.408],
+    #                8 : [0.000, 0.706, 0.889, 1.108, 1.397, 1.860, 2.306, 2.896, 3.355, 4.501, 5.041],
+    #                9 : [0.000, 0.703, 0.883, 1.100, 1.383, 1.833, 2.262, 2.821, 3.250, 4.297, 4.781],
+    #               10 : [0.000, 0.700, 0.879, 1.093, 1.372, 1.812, 2.228, 2.764, 3.169, 4.144, 4.587],
+    #               11 : [0.000, 0.697, 0.876, 1.088, 1.363, 1.796, 2.201, 2.718, 3.106, 4.025, 4.437],
+    #               12 : [0.000, 0.695, 0.873, 1.083, 1.356, 1.782, 2.179, 2.681, 3.055, 3.930, 4.318],
+    #               13 : [0.000, 0.694, 0.870, 1.079, 1.350, 1.771, 2.160, 2.650, 3.012, 3.852, 4.221],
+    #               14 : [0.000, 0.692, 0.868, 1.076, 1.345, 1.761, 2.145, 2.624, 2.977, 3.787, 4.140],
+    #               15 : [0.000, 0.691, 0.866, 1.074, 1.341, 1.753, 2.131, 2.602, 2.947, 3.733, 4.073],
+    #               16 : [0.000, 0.690, 0.865, 1.071, 1.337, 1.746, 2.120, 2.583, 2.921, 3.686, 4.015],
+    #               17 : [0.000, 0.689, 0.863, 1.069, 1.333, 1.740, 2.110, 2.567, 2.898, 3.646, 3.965],
+    #               18 : [0.000, 0.688, 0.862, 1.067, 1.330, 1.734, 2.101, 2.552, 2.878, 3.610, 3.922],
+    #               19 : [0.000, 0.688, 0.861, 1.066, 1.328, 1.729, 2.093, 2.539, 2.861, 3.579, 3.883],
+    #               20 : [0.000, 0.687, 0.860, 1.064, 1.325, 1.725, 2.086, 2.528, 2.845, 3.552, 3.850],
+    #               21 : [0.000, 0.686, 0.859, 1.063, 1.323, 1.721, 2.080, 2.518, 2.831, 3.527, 3.819],
+    #               22 : [0.000, 0.686, 0.858, 1.061, 1.321, 1.717, 2.074, 2.508, 2.819, 3.505, 3.792],
+    #               23 : [0.000, 0.685, 0.858, 1.060, 1.319, 1.714, 2.069, 2.500, 2.807, 3.485, 3.768],
+    #               24 : [0.000, 0.685, 0.857, 1.059, 1.318, 1.711, 2.064, 2.492, 2.797, 3.467, 3.745],
+    #               25 : [0.000, 0.684, 0.856, 1.058, 1.316, 1.708, 2.060, 2.485, 2.787, 3.450, 3.725],
+    #               26 : [0.000, 0.684, 0.856, 1.058, 1.315, 1.706, 2.056, 2.479, 2.779, 3.435, 3.707],
+    #               27 : [0.000, 0.684, 0.855, 1.057, 1.314, 1.703, 2.052, 2.473, 2.771, 3.421, 3.690],
+    #               28 : [0.000, 0.683, 0.855, 1.056, 1.313, 1.701, 2.048, 2.467, 2.763, 3.408, 3.674],
+    #               29 : [0.000, 0.683, 0.854, 1.055, 1.311, 1.699, 2.045, 2.462, 2.756, 3.396, 3.659],
+    #               30 : [0.000, 0.683, 0.854, 1.055, 1.310, 1.697, 2.042, 2.457, 2.750, 3.385, 3.646],
+    #               40 : [0.000, 0.681, 0.851, 1.050, 1.303, 1.684, 2.021, 2.423, 2.704, 3.307, 3.551],
+    #               60 : [0.000, 0.679, 0.848, 1.045, 1.296, 1.671, 2.000, 2.390, 2.660, 3.232, 3.460],
+    #               80 : [0.000, 0.678, 0.846, 1.043, 1.292, 1.664, 1.990, 2.374, 2.639, 3.195, 3.416],
+    #              100 : [0.000, 0.677, 0.845, 1.042, 1.290, 1.660, 1.984, 2.364, 2.626, 3.174, 3.390],
+    #             1000 : [0.000, 0.675, 0.842, 1.037, 1.282, 1.646, 1.962, 2.330, 2.581, 3.098, 3.300]}
+

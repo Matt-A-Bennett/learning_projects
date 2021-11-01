@@ -26,6 +26,31 @@ def gen_mat(size, values=[0], type='full'):
 def eye(size):
     return gen_mat(size, values=[1], type='diag')
 
+def size(A):
+    return [len(A.data), len(A.data[0])]
+
+def cat(A, B, axis=0):
+    if axis == 0:
+        concatenated = Mat(A.data + B.data)
+    elif axis == 1:
+        concatenated = Mat([rows[0]+rows[1] for rows in zip(A.data, B.data)])
+    return concatenated
+
+def tile(A, axes=[1,1]):
+    B = dc(A)
+    for j in range(axes[1]-1):
+        A = cat(A, B, axis=1)
+    B = dc(A)
+    for i in range(axes[0]-1):
+        A = cat(A, B, axis=0)
+    return A
+
+def print_mat(A, round_dp=99):
+    for row in A.data:
+        rounded = [round(i,round_dp) for i in row]
+        print(rounded)
+    print()
+
 # NEEDS TESTING
 def vandermonde(n_rows, order=1):
     A = gen_mat([n_rows, 1])
@@ -39,22 +64,6 @@ def vandermonde(n_rows, order=1):
 # NEEDS IMPLEMENTING (vandermonde is nearly to singular... there are better choices)
 def better_basis():
     pass
-
-def cat(A, B, axis=0):
-    if axis == 0:
-        concatenated = Mat(A.data + B.data)
-    elif axis == 1:
-        concatenated = Mat([rows[0]+rows[1] for rows in zip(A.data, B.data)])
-    return concatenated
-
-def print_mat(self, round_dp=99):
-    for row in self.data:
-        rounded = [round(i,round_dp) for i in row]
-        print(rounded)
-    print()
-
-def size(self):
-    return [len(self.data), len(self.data[0])]
 
 class Mat:
     def __init__(self, data):
@@ -306,7 +315,7 @@ class Mat:
             det *= -1
         return det
 
-   def is_negdef(self):
+    def is_negdef(self):
         return self.pivot_sign_code() == 4
 
     def is_negsemidef(self):
