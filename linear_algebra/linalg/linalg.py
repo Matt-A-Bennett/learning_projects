@@ -1,4 +1,11 @@
 # Know bugs:
+    # drop_dependent() not working properly:
+        # col of all zeros
+        # and this drops the 3rd independent column...
+        # test = la.Mat([[3, 2, 0],
+        #                [0, 2, 0],
+        #                [0, 0, 1]])
+
 
 # Things to improve:
     # I have a cleaner looking method for dot() but it's much slower...
@@ -53,7 +60,6 @@ def print_mat(A, round_dp=99):
         print(rounded)
     print()
 
-# NEEDS ADDING TO BLOG
 # @measure_time
 def vandermonde(n_rows, order=1):
     A = gen_mat([n_rows, 1])
@@ -75,15 +81,6 @@ class Mat:
         self.data = data
 
     # @measure_time
-    def size(self, axis=2):
-        if axis == 0:
-            return len(self.data)
-        elif axis == 1:
-            return len(self.data[0])
-        elif axis == 2:
-            return [len(self.data), len(self.data[0])]
-
-    # @measure_time
     def transpose(self):
         transposed = []
         for i, row in enumerate(self.data):
@@ -99,11 +96,20 @@ class Mat:
     # @measure_time
     def ind(self, i=None, j=None):
         if isinstance(i, int) and not isinstance(j, int):
-            return self.data[i]
+            return Mat([self.data[i]])
         elif isinstance(j, int) and not isinstance(i, int):
-            return self.transpose().data[j]
+            return Mat([self.transpose().data[j]]).transpose()
         elif isinstance(i, int) and isinstance(j, int):
             return self.data[i][j]
+
+    # @measure_time
+    def size(self, axis=2):
+        if axis == 0:
+            return len(self.data)
+        elif axis == 1:
+            return len(self.data[0])
+        elif axis == 2:
+            return [len(self.data), len(self.data[0])]
 
     # @measure_time
     def make_scalar(self):
@@ -114,12 +120,10 @@ class Mat:
     def is_square(self):
         return self.size(0) == self.size(1)
 
-    # NEEDS ADDING TO BLOG
     # @measure_time
     def is_wide(self):
         return self.size(0) < self.size(1)
 
-    # NEEDS ADDING TO BLOG
     # @measure_time
     def is_tall(self):
         return self.size(0) > self.size(1)
@@ -153,7 +157,6 @@ class Mat:
         else:
             return True
 
-    # NEEDS ADDING TO BLOG (new tile)
     # @measure_time
     def tile(self, axes=[1,1]):
         B = dc(self)
@@ -251,7 +254,6 @@ class Mat:
             diag_vals.append(self.ind(idx,idx))
         return diag_vals
 
-    # NEEDS ADDING TO BLOG
     # @measure_time
     def elimination(self):
         # should do some row exchanges for numerical stability...
@@ -396,7 +398,7 @@ class Mat:
         pivot_info = self.pivots().items()
 
         neg = int(any(piv[1] < 0 for piv in pivot_info))
-        semi = int(any(piv[1] == 0 for piv in pivot_info))
+        semi = int(len(pivot_info) < self.size(1))
         pos = int(any(piv[1] > 0 for piv in pivot_info))
 
         return int(str(neg) + str(semi) + str(pos), 2)
@@ -417,15 +419,19 @@ class Mat:
     def is_posdef(self):
         return self.pivot_sign_code() == 1
 
-    # NEEDS ADDING TO BLOG
+    # NEEDS FIXING
     # @measure_time
-    def drop_dependent_cols(self):
+    def drop_dependent(self, axis=0):
+        if axis == 1:
+            self = self.transpose()
         pivot_info = self.pivots()
-        self = self.transpose()
-        B = gen_mat([0,0])
+        B = gen_mat([self.size(0),0])
         for pivot in pivot_info.items():
-            B.data.append(self.data[pivot[0]])
-        return B.transpose()
+            pivot_col = self.ind('', pivot[0])
+            B = cat(B, pivot_col, axis=1)
+        if axis == 1:
+            return B.transpose()
+        return B
 
     # @measure_time
     def inverse(self):
@@ -490,19 +496,17 @@ class Mat:
         Projection = self.multiply(for_x)
         return Projection, for_x
 
-    # NEEDS ADDING TO BLOG
     # @measure_time
     def project_onto_A(self, A):
         _, for_x = A.projection()
         projected = for_x.multiply(self)
         return projected
 
-    # NEEDS ADDING TO BLOG
     # @measure_time
     def polyfit(self, order=1):
-        A = vandermonde(self.size(0), order=order)
+        V = vandermonde(self.size(0), order=order)
         # fit model to b
-        return self.project_onto_A(A)
+        return self.project_onto_V(V)
 
     # @measure_time
     def linfit(self):

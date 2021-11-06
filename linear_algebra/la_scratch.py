@@ -19,11 +19,13 @@ test2 = la.Mat([[1, 2, 3],
             [2, 4, 4],
             [3, 4, 5]])
 
-test = la.Mat([[3, 1, 2],
-              [0, 2, 2],
+test = la.Mat([[3, 2, 0],
+              [0, 2, 0],
               [0, 0, 1]])
 
+print(test.ind(1,2))
 # drop dependent columns
+la.print_mat(test.drop_dependent_cols())
 la.print_mat(test.drop_dependent_cols())
 
 test.pivot_sign_code()
@@ -147,6 +149,9 @@ A, Q, R = test.qr()
 la.print_mat(Q, 2)
 la.print_mat(R, 2)
 la.print_mat(A, 13)
+
+# vandemonde
+la.print_mat(la.vandermonde(5, order=3))
 
 # Regression
 def quick_plot(b, orders=[1]):
