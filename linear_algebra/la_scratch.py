@@ -36,7 +36,7 @@ l = [1,1,3,2]
 la.print_mat(la.gen_mat([0,0]))
 la.print_mat(la.Mat([]))
 
-AAt = test.transpose().multiply(test)
+AAt = test.tr().multiply(test)
 test.size()
 la.print_mat(AAt)
 
@@ -70,7 +70,7 @@ evects, evals = test.eig()
 la.print_mat(test)
 la.print_mat(evals, 2)
 la.print_mat(evects,2)
-evect = la.Mat([evects.transpose().data[0]]).transpose()
+evect = la.Mat([evects.tr().data[0]]).tr()
 la.print_mat(evect,2)
 la.print_mat(test.multiply(evect),2)
 la.print_mat(evect.multiply_elwise(evals.data[0][0]),2)
@@ -158,7 +158,7 @@ def quick_plot(b, orders=[1]):
     fig = plt.figure()
     Xs = [i/10 for i in range(len(b.data[0])*10)]
     for idx, order in enumerate(orders):
-        fit = b.transpose().polyfit(order=order)
+        fit = b.tr().polyfit(order=order)
         Ys = []
         for x in Xs:
             y = 0
