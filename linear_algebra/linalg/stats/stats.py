@@ -12,7 +12,7 @@ def sum(A, axis=0):
         axis = A.size().index(max(A.size()))
     if axis == 1:
         A = A.tr()
-    ones = la.gen_mat([1,A.size(0)],values=[1])
+    ones = la.gen_mat([1, A.size(0)], values=[1])
     A_sum = ones.multiply(A)
     if axis == 1:
         A_sum = A_sum.tr()
@@ -40,7 +40,7 @@ def zero_center(A, axis=0):
     if A.is_square():
         A = gen_centering(A.size()).multiply(A)
     else:
-        A_mean_mat = mean(A).tile(axes=[A.size(0),1])
+        A_mean_mat = mean(A).tile(axes=[A.size(0), 1])
         A = A.subtract(A_mean_mat)
     if axis == 1:
         A = A.tr()
@@ -56,6 +56,28 @@ def covar(A, axis=0, sample=True):
         N -= 1
     A_cov = A_cov.div_elwise(N)
     return A_cov
+
+def sum_of_squares(A, axis=0):
+    # if we have a vector, we sum along it's length
+    if min(A.size()) == 1:
+        axis = A.size().index(max(A.size()))
+    devs = zero_center(A)
+    sq_devs = devs.function_elwise(lambda x: x*x)
+
+    # sums of squares
+    SS = sum(sq_devs)
+    return SS
+
+# def sum_of_squares(A):
+#     n_samp = A.size(0)
+#     group_means = mean(A)
+#     group_dev = zero_center(group_means, axis=1)
+#     sq_dev = group_dev.multiply_elwise(group_dev)
+
+#     # sums of squares
+#     group_SS = sq_dev.multiply_elwise(n_samp)
+#     SS = sum(group_SS).make_scalar()
+#     return SS
 
 def var(A, axis=0, sample=True):
     A_covar = covar(A, axis, sample)
@@ -87,7 +109,7 @@ def zscore(A, axis=0, sample=False):
 def corr(A, axis=0):
     K = covar(A, axis)
     sds=[1/sqrt(x) for x in K.diag()]
-    K_sqrt = la.gen_mat([len(sds)]*2, values=sds, type='diag')
+    K_sqrt = la.gen_mat(len(sds), values=sds, kind='diag')
     correlations = K_sqrt.multiply(K).multiply(K_sqrt)
     return correlations
 
@@ -136,44 +158,60 @@ def ttest_unpaired(u, v, assume_equal_vars=False):
 
     return t, df
 
-# Only works for same number of observations per group
-def anova_one_way(A):
-    n_samp = A.size(0)
-    n_groups = A.size(1)
-    tot_obs = n_samp*n_groups
+# # Only works for same number of observations per group
+# # sum_of_squares() needs to be use the weird group_SS
+# def anova_one_way(A):
+#     n_samp = A.size(0)
+#     n_groups = A.size(1)
+#     tot_obs = n_samp*n_groups
 
-    group_means = mean(A)
-    group_dev = zero_center(group_means, axis=1)
-    sq_dev = group_dev.multiply_elwise(group_dev)
+#     SS = sum_of_squares(A)
 
-    # sums of squares
-    group_SS = sq_dev.multiply_elwise(n_samp)
-    SS = sum(group_SS).make_scalar()
+#     group_SSE = var(A, sample=False).multiply_elwise(n_samp)
+#     SSE = sum(group_SSE).make_scalar()
 
-    group_SSE = var(A, sample=False).multiply_elwise(n_samp)
-    SSE = sum(group_SSE).make_scalar()
+#     SST = SS + SSE
 
-    SST = SS + SSE
+#     # degrees of freedom
+#     df = A.size(1) - 1
+#     df_err = tot_obs - A.size(1)
+#     df_tot = tot_obs - 1
 
-    # degrees of freedom
-    df = A.size(1) - 1
-    df_err = tot_obs - A.size(1)
-    df_tot = tot_obs - 1
+#     # mean sum of squares and mean error sum of squares
+#     MS = SS / df
+#     MSE = SSE / df_err
 
-    # mean sum of squares and mean error sum of squares
-    MS = SS / df
-    MSE = SSE / df_err
+#     F = MS / MSE
 
-    F = MS / MSE
+#     # strore, print and return results
+#     results = {'Source':['Treatment', 'Error', 'Total'],
+#                'Sums of Squares (SS)':[SS, SSE, SST],
+#                'df':[df, df_err, df_tot],
+#                'Mean Squares':[MS, MSE],
+#                'F':[F]}
+#     print('\n', tabulate(results, headers='keys'))
 
-    # strore, print and return results
-    results = {'Source':['Treatment', 'Error', 'Total'],
-               'Sums of Squares (SS)':[SS, SSE, SST],
-               'df':[df, df_err, df_tot],
-               'Mean Squares':[MS, MSE],
-               'F':[F]}
-    print('\n', tabulate(results, headers='keys'))
+#     return results
 
-    return results
+def anova_two_way(boys, girls):
+    n_obs = boys.size(0)
+    n_samps = boys.size(0)*boys.size(1)
+    boys_score_mean = mean(boys)
+    girls_score_mean = mean(girls)
 
+    boys_mean = mean(boys_score_mean).make_scalar()
+    girls_mean = mean(girls_score_mean).make_scalar()
 
+    score_mean = mean(la.cat(boys_score_mean, girls_score_mean))
+    la.print_mat(boys_score_mean)
+
+    grand_mean = (boys_mean + girls_mean)/2
+
+    SS_gen = n_samps*((boys_mean - grand_mean)**2 + (girls_mean - grand_mean)**2)
+    SS_age = 2*sum(score_mean.subtract(grand_mean).function_elwise(lambda x: x*x).multiply_elwise(n_obs)).make_scalar()
+
+    # SSE
+    # SS
+    # SS_gen_age
+
+# la.stats.mean(Super)

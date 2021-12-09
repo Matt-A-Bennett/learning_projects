@@ -2,10 +2,16 @@ exit()
 python3
 print("\n"*100)
 import linalg as la
+type(2)
+isinstance(test, Mat)
 
-test = la.Mat([[1, 1, 3],
-            [2, 2, 4],
-            [5, 2, 6]])
+test = la.Mat([ [1, 2, 3, 5, 7, 9],
+                [2, 9, 4, 3, 10, 3],
+                [3, 11, 3, 2, 11, 3],
+                [1, 6, 3, 1, 8, 3],
+                [5, 2, 6, 0, -2, 3]])
+
+la.print_mat(test.reshape([3,''], axis=0))
 
 la.print_mat(test.add(test))
 test.inverse()
@@ -225,5 +231,5 @@ la.print_mat(U)
 la.print_mat(E.multiply(test))
 
 # gen mat
-la.print_mat(la.gen_mat([7,7], values=[1], type='upper'))
-la.print_mat(la.gen_mat([7,7], values=[2, -1], type='full'))
+la.print_mat(la.gen_mat([7,7], values=[1], kind='upper'))
+la.print_mat(la.gen_mat([7,7], values=[2, -1], kind='full'))

@@ -16,15 +16,18 @@ import time
 
 def measure_time(f):
     def timed(*args, **kw):
-        ts = time.time()
+        ts = time.perf_counter()
         result = f(*args, **kw)
-        te = time.time()
+        te = time.perf_counter()
         if te-ts > 0.001:
             print(f'{f.__name__}, {te-ts}')
         return result
     return timed
 
-def gen_mat(size, values=[0], type='full'):
+# NEEDS ADDING TO BLOG (isinstance)
+def gen_mat(size, values=[0], kind='full'):
+    if isinstance(2, int):
+        size = [size, size]
     if len(values) == 1:
         values = [values[0] for val in range(max(size))]
     elif len(values) < max(size):
@@ -33,9 +36,9 @@ def gen_mat(size, values=[0], type='full'):
     for i in range(size[0]):
         row = []
         for j in range(size[1]):
-            if (type == 'diag' and j!=i) or (type == 'upper' and j<=i) or (type == 'lower' and j>=i):
+            if (kind == 'diag' and j!=i) or (kind == 'upper' and j<=i) or (kind == 'lower' and j>=i):
                 row.append(0)
-            elif type == 'diag':
+            elif kind == 'diag':
                 row.append(values[j])
             elif j>=i:
                 row.append(values[j-i])
@@ -45,7 +48,7 @@ def gen_mat(size, values=[0], type='full'):
     return Mat(generated_mat)
 
 def eye(size):
-    return gen_mat(size, values=[1], type='diag')
+    return gen_mat(size, values=[1], kind='diag')
 
 def cat(A, B, axis=0):
     if axis == 0:
@@ -56,7 +59,7 @@ def cat(A, B, axis=0):
 
 def print_mat(A, round_dp=99):
     for row in A.data:
-        rounded = [round(j,round_dp) for j in row]
+        rounded = [round(j, round_dp) for j in row]
         print(rounded)
     print()
 
@@ -75,9 +78,16 @@ def vandermonde(n_rows, order=1):
 def better_basis():
     pass
 
+# NEEDS ADDING TO BLOG
 class Mat:
     # @measure_time
     def __init__(self, data):
+
+        assert isinstance(data, list)
+        row_len = len(data[0])
+        for row in data:
+            assert len(row) == row_len
+
         self.data = data
 
     # @measure_time
@@ -102,19 +112,73 @@ class Mat:
         elif axis == 2:
             return [len(self.data), len(self.data[0])]
 
-    # @measure_time
-    def ind(self, i=None, j=None):
-        if isinstance(i, int) and not isinstance(j, int):
-            return Mat([self.data[i]])
-        elif isinstance(j, int) and not isinstance(i, int):
-            return Mat([self.tr().data[j]]).tr()
-        elif isinstance(i, int) and isinstance(j, int):
-            return self.data[i][j]
+    # NEEDS ADDING TO BLOG
+    def numel(self):
+        return self.size(0) * self.size(1)
 
     # @measure_time
     def make_scalar(self):
         if max(self.size()) == 1:
-            return self.ind(0,0)
+            return self.data[0][0]
+
+    # NEEDS ADDING TO BLOG
+    # @measure_time
+    def ind(self, i_inds=None, j_inds=None):
+        scaler = 0
+        tmp = []
+        for inds in [i_inds, j_inds]:
+            if isinstance(inds, int):
+                inds = [inds, inds]
+                scaler += 1
+            elif isinstance(inds, str):
+                inds = [0, self.size(0)-1]
+            elif isinstance(inds[1], str):
+                inds[1] = self.size(0)-1
+            tmp.append(inds)
+        i_inds, j_inds = tmp[0], tmp[1]
+
+        A = gen_mat([i_inds[1]-i_inds[0]+1, j_inds[1]-j_inds[0]+1])
+        for i1, i2 in enumerate(range(i_inds[0], i_inds[1]+1)):
+            for j1, j2 in enumerate(range(j_inds[0], j_inds[1]+1)):
+                A.data[i1][j1] = self.data[i2][j2]
+        if scaler == 2:
+            A = A.make_scalar()
+        return A
+
+    # NEEDS ADDING TO BLOG
+    def vectorise(self, axis=0):
+        if axis == 1:
+            self = self.tr()
+
+        vec = self.ind('', 0)
+        for j in range(1, self.size(1)):
+            vec = cat(vec, self.ind('', j))
+
+        if axis == 1:
+            vec = vec.tr()
+        return vec
+
+    # NEEDS ADDING TO BLOG
+    def reshape(self, size, axis=0):
+        if axis == 1:
+            self = self.tr()
+            size = [size[1], size[0]]
+
+        if size[0] == '':
+            size[0] = int(self.numel() / size[1])
+        if size[1] == '':
+            size[1] = int(self.numel() / size[0])
+
+        out = gen_mat(size)
+        self = self.vectorise(axis=0)
+        count = 0
+        for j in range(size[1]):
+            for i in range(size[0]):
+                out.data[i][j] = self.ind(count, 0)
+                count += 1
+        if axis == 1:
+            out = out.tr()
+        return out
 
     # @measure_time
     def is_square(self):
@@ -131,7 +195,7 @@ class Mat:
     # @measure_time
     def is_lower_tri(self):
         for i, row in enumerate(self.data):
-            for col in range(i+1,len(row)):
+            for col in range(i+1, len(row)):
                 if row[col] != 0:
                     return False
         else:
@@ -152,13 +216,13 @@ class Mat:
     def is_symmetric(self):
         for i in range(self.size(0)):
             for j in range(i+1, self.size(0)):
-                if self.ind(i,j) != self.ind(i,j):
+                if self.ind(i, j) != self.ind(i, j):
                     return False
         else:
             return True
 
     # @measure_time
-    def tile(self, axes=[1,1]):
+    def tile(self, axes=[1, 1]):
         B = dc(self)
         for j in range(axes[1]-1):
             self = cat(self, B, axis=1)
@@ -173,14 +237,15 @@ class Mat:
         for i in range(self.size(0)):
             for j in range(self.size(1)):
                 if B:
-                    C.data[i][j] = function(self.ind(i,j), B.ind(i,j))
+                    C.data[i][j] = function(self.ind(i, j), B.ind(i, j))
                 else:
-                    C.data[i][j] = function(self.ind(i,j))
+                    C.data[i][j] = function(self.ind(i, j))
         return C
 
     # @measure_time
+    # NEEDS ADDING TO BLOG (is False)
     def function_choice(self, B, functions):
-        if isinstance(B, Mat) == False:
+        if isinstance(B, Mat) is False:
             return self.function_elwise(functions[0])
         return self.function_elwise(functions[1], B)
 
@@ -222,7 +287,7 @@ class Mat:
     #     if new_mat.size(0) != 1:
     #         new_mat = new_mat.tr()
     #     self = self.multiply_elwise(new_mat)
-    #     return sum(self.ind(0,''))
+    #     return sum(self.ind(0, ''))
 
     # @measure_time
     def length(self):
@@ -251,7 +316,7 @@ class Mat:
     def diag(self):
         diag_vals = []
         for idx in range(min(self.size())):
-            diag_vals.append(self.ind(idx,idx))
+            diag_vals.append(self.ind(idx, idx))
         return diag_vals
 
     # @measure_time
@@ -262,7 +327,7 @@ class Mat:
         singular = False
 
         # size of elimination and perumtation matrices
-        mat_size = [self.size(0)]*2
+        mat_size = self.size(0)
 
         # create identity matrix which we'll turn into an E matrix
         E = eye(mat_size)
@@ -317,8 +382,8 @@ class Mat:
         # If self was a 1x1 matrix, the above loops didn't happen. Take the
         # reciprocal of the number:
         if U.size(0) == 1 and U.size(1) == 2:
-            if U.ind(0,0) != 0:
-                U.data[0] = [1/U.ind(0,0), 1]
+            if U.ind(0, 0) != 0:
+                U.data[0] = [1/U.ind(0, 0), 1]
             i = -1
 
         # check if the matrix is square
@@ -425,7 +490,7 @@ class Mat:
         if axis == 1:
             self = self.tr()
         pivot_info = self.pivots()
-        B = gen_mat([self.size(0),0])
+        B = gen_mat([self.size(0), 0])
         for pivot in pivot_info.items():
             pivot_col = self.ind('', pivot[0])
             B = cat(B, pivot_col, axis=1)
@@ -470,7 +535,7 @@ class Mat:
         # divide each row by c to get [I A^-1]
         div = gen_mat(mat_size)
         for idx in range(mat_size[0]):
-            div.data[idx][idx] = 1/U.ind(idx,idx)
+            div.data[idx][idx] = 1/U.ind(idx, idx)
         inv = div.multiply(U)
 
         # flip back
@@ -604,7 +669,7 @@ class Mat:
                 evalue -= 1e-12
             A_shifted = self.subtract(eye(self.size()).multiply_elwise(evalue))
             # A_shifted_inv = A_shifted.inverse()
-            b = gen_mat([self.size(0),1], values=[1])
+            b = gen_mat([self.size(0), 1], values=[1])
             b = b.norm()
             for its in range(max_its):
                 old_b = dc(b)
@@ -622,7 +687,7 @@ class Mat:
     # @measure_time
     def eigdiag(self):
         evects, evals = self.eig()
-        eigval_mat = gen_mat(self.size(), values=evals.data[0], type='diag')
+        eigval_mat = gen_mat(self.size(), values=evals.data[0], kind='diag')
         if self.is_symmetric():
             evectsinv = evects.tr()
         else:
@@ -641,8 +706,8 @@ class Mat:
 
         # make sigma a diag matrix with sqr_roots of sigma_sqrd
         sigma = [sqrt(sigsq) for sigsq in sigma_sqrd.data[0]]
-        sigma = gen_mat(size=[len(sigma),len(sigma)],
-                        values=sigma, type='diag')
+        sigma = gen_mat(size=len(sigma),
+                        values=sigma, kind='diag')
 
         U = A.multiply(V).multiply(sigma.inverse())
         return U, sigma, V.tr()

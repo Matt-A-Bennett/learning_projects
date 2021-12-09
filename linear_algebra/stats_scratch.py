@@ -3,6 +3,21 @@ python3
 print("\n"*100)
 import linalg as la
 
+# anova two way
+m = la.Mat([[4, 6, 8],
+           [6, 6, 9],
+           [8, 9, 13],
+           ])
+
+f = la.Mat([[4, 7, 12],
+            [8, 10, 14],
+            [9, 13, 16],
+            ])
+
+# la.stats.anova_two_way(m, f)
+
+la.print_mat(m.reshape([6,2]))
+
 A = la.Mat([[85, 84, 81],
             [86, 83, 92],
             [88, 93, 103],
