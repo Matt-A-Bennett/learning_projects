@@ -25,7 +25,7 @@ def measure_time(f):
     return timed
 
 # NEEDS ADDING TO BLOG (isinstance)
-def gen_mat(size, values=[0], kind='full'):
+def gen_mat(size, values=[0], family='full'):
     if isinstance(2, int):
         size = [size, size]
     if len(values) == 1:
@@ -36,9 +36,9 @@ def gen_mat(size, values=[0], kind='full'):
     for i in range(size[0]):
         row = []
         for j in range(size[1]):
-            if (kind == 'diag' and j!=i) or (kind == 'upper' and j<=i) or (kind == 'lower' and j>=i):
+            if (family == 'diag' and j!=i) or (family == 'upper' and j<=i) or (family == 'lower' and j>=i):
                 row.append(0)
-            elif kind == 'diag':
+            elif family == 'diag':
                 row.append(values[j])
             elif j>=i:
                 row.append(values[j-i])
@@ -48,7 +48,7 @@ def gen_mat(size, values=[0], kind='full'):
     return Mat(generated_mat)
 
 def eye(size):
-    return gen_mat(size, values=[1], kind='diag')
+    return gen_mat(size, values=[1], family='diag')
 
 def cat(A, B, axis=0):
     if axis == 0:
@@ -687,7 +687,7 @@ class Mat:
     # @measure_time
     def eigdiag(self):
         evects, evals = self.eig()
-        eigval_mat = gen_mat(self.size(), values=evals.data[0], kind='diag')
+        eigval_mat = gen_mat(self.size(), values=evals.data[0], family='diag')
         if self.is_symmetric():
             evectsinv = evects.tr()
         else:
@@ -707,7 +707,7 @@ class Mat:
         # make sigma a diag matrix with sqr_roots of sigma_sqrd
         sigma = [sqrt(sigsq) for sigsq in sigma_sqrd.data[0]]
         sigma = gen_mat(size=len(sigma),
-                        values=sigma, kind='diag')
+                        values=sigma, family='diag')
 
         U = A.multiply(V).multiply(sigma.inverse())
         return U, sigma, V.tr()

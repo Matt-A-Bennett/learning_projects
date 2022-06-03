@@ -109,7 +109,7 @@ def zscore(A, axis=0, sample=False):
 def corr(A, axis=0):
     K = covar(A, axis)
     sds=[1/sqrt(x) for x in K.diag()]
-    K_sqrt = la.gen_mat(len(sds), values=sds, kind='diag')
+    K_sqrt = la.gen_mat(len(sds), values=sds, family='diag')
     correlations = K_sqrt.multiply(K).multiply(K_sqrt)
     return correlations
 
